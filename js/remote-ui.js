@@ -570,7 +570,7 @@ function setLocalParamViaOsc(osc, type, name) {
         paramInfo.max = parseFloat(args[2]);
         // paramInfo.step = (paramInfo.max - paramInfo.min) / 100;
         if (isNewParam)
-            control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max, paramInfo.step)//.listen();
+            control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max, paramInfo.step).step(0.0001)//.listen();
     }
     else if (type == "INT") {
         paramVals[name] = parseInt(paramVal);
@@ -638,7 +638,7 @@ CIAO    -   Signal disconnect
 // Server sends HELO after we say HELO, opening connection
 // Next we want to request the param list
 function gotHELO(osc) {
-    setInterval(function() {sendOSC("TEST")}, 500);
+    setInterval(function() {sendOSC("TEST")}, 3000);
     sendOSC("REQU");
 }
 
