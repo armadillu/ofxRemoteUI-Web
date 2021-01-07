@@ -576,8 +576,10 @@ function setLocalParamViaOsc(osc, type, name) {
         paramVals[name] = parseFloat(paramVal);
         paramInfo.min = parseFloat(args[1]);
         paramInfo.max = parseFloat(args[2]);
-        if (isNewParam)
-            control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max, paramInfo.step).step(paramInfo.max - paramInfo.min / 1000.0);//.listen();
+        if (isNewParam){
+        	var step = (paramInfo.max - paramInfo.min) / 1000.0;
+            control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max).step(step);//.listen();
+        }
     }
     else if (type == "INT") { // [val min max bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = parseInt(paramVal);
