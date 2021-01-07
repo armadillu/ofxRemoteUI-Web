@@ -309,7 +309,7 @@ var gui;
 
 function createGUI() {
    placeholderControls.style.display = 'none';
-   gui = new dat.GUI({ autoPlace: false, width: guiContainer.offsetWidth });
+   gui = new dat.GUI({ autoPlace: false, width: guiContainer.offsetWidth - 10 });
    window.addEventListener("resize", function() {
        gui.width = guiContainer.offsetWidth;
    })
@@ -336,11 +336,11 @@ function destroyGUI(){
 //                    Presets                    //
 ///////////////////////////////////////////////////
 
-function PresetFolder(guiRef, groupName) {
+function PresetFolder(guiRef, groupName, rgbac) {
     var NO_SELECTION = "No Preset Selected";
     var isMain = (typeof groupName === 'undefined');
 
-    this.presetFolder = guiRef.addFolder(isMain ? "Presets" : "group presets");
+    this.presetFolder = guiRef.addFolder(isMain ? "Presets" : "Group Presets");
     this.presetFolder.open();
     this.presetNames = [NO_SELECTION];
 
@@ -358,7 +358,7 @@ function PresetFolder(guiRef, groupName) {
     header.style.width = "100%";
 
     // lighter color for group preset headers
-    if (!isMain) header.style.backgroundColor = "#1c1c1c";
+    if (!isMain) header.style.backgroundColor = rgbac; //"#1c1c1c";
 
     // Redraws the Preset folder
     this.redrawPresetFolder = function(){
@@ -393,9 +393,7 @@ function PresetFolder(guiRef, groupName) {
                 }
                 content.style.width = "calc(100% - 4px)";
             }
-
         })
-
     }
 
     // Function linked to a button to create a new preset and send it to the server
@@ -546,7 +544,7 @@ function getHeaderPieces(osc) {
 
 // RGBA color values are the last 4 elts of param OSC message args
 function getColorFromArgs(args) {
-    var back = args.length - 1;
+    var back = args.length - 2;
     return {
         r : args[back - 4],
         g : args[back - 3],
@@ -573,7 +571,6 @@ function setLocalParamViaOsc(osc, type, name) {
     var isNewParam = !(paramVals.hasOwnProperty(name));    
 
     paramMetas[name] = paramInfo;
-    
 
     if (type == "FLT") { // [val min max bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = parseFloat(paramVal);
@@ -622,7 +619,9 @@ function setLocalParamViaOsc(osc, type, name) {
 
     if (control) {
         control.onChange(createParamSend(name));
-        control.__li.style.borderLeft = '3px solid rgba(' + color.r + ',' + color.g + ',' + color.b + ',' + color.a + ')';
+        var rgbac = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.3)';
+        control.__li.style.borderLeft = '10px solid ' + rgbac;
+        control.__li.style.backgroundColor = rgbac;
     }
 
     if (!isNewParam) gui.updateDisplay();
@@ -683,7 +682,7 @@ function gotSEND(osc) {
     }
 
     if (type == "SPA" && !gui.__folders[name]) { // Its a new group
-    	console.log("NEW GROUP: " + name);
+    	console.log("#### " + name + "############################");
         var newGroup = gui.addFolder(name);
         newGroup.domElement.classList.add("param-group");
         var headerStyle = newGroup.domElement.firstChild.firstChild.style;
@@ -691,10 +690,17 @@ function gotSEND(osc) {
         headerStyle.height = "29px";
         headerStyle.lineHeight = "29px";
         headerStyle.textAlign = "center";
-        headerStyle.marginTop = "30px";
+        headerStyle.marginTop = "10px";
         newGroup.open();
-        newGroup.presetFolder = new PresetFolder(newGroup, name);
+
+   		var color = getColorFromArgs(osc.args);
+        var rgbac = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.5)';
+        headerStyle.backgroundColor = rgbac;
+
+		var rgbac2 = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.3)';
+        newGroup.presetFolder = new PresetFolder(newGroup, name, rgbac2);
         newGroup.presetFolder.presetFolder.close();
+
         //newGroup.close();
         groups.unshift(newGroup);
     }
