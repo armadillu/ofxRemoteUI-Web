@@ -39,7 +39,6 @@ window.onload = function() {
     else if (lastGoodHost) {
         setupSocket(lastGoodHost);
     }
-
  };
 
 // Query string extraction (credit goes to https://stackoverflow.com/a/901144/8250599)
@@ -486,23 +485,31 @@ function filterGroups(str) {
     if (!gui) return;
     var search = new RegExp("(" + str.split(' ').join('|') + ")", "gi");
 
-    Object.keys(gui.__folders).forEach(function(name){ // Iterate through groups
-        if (name == 'Presets') return;
-        var group = gui.__folders[name];
-        // Filter group headings
-        if (name.match(search)){
-            group.domElement.firstChild.firstChild.style.opacity = '1';
-            group.__folders["group presets"].domElement.style.opacity = '1';
-        }
-        else {
-            group.domElement.firstChild.firstChild.style.opacity = '0.25';
-            group.__folders["group presets"].domElement.style.opacity = '0.25';
-        }
+    Object.keys(gui.__folders).forEach(function(groupName){ // Iterate through groups (names)
+        if (groupName == 'Presets') return;
+        var group = gui.__folders[groupName];
+
         // Filter individual param controllers
-        group.__controllers.forEach(function(controller){
-            var name = controller.property;
-            controller.__li.style.opacity = name.match(search) ? '1' : '0.2';
+        var anyParamVisible = false; //see if any params in the group match the search str
+        group.__controllers.forEach(function(controller){		            
+            var pname = controller.property;
+            //controller.__li.style.opacity = pname.match(search) ? '1' : '0.2';
+            var stringMatch = pname.match(search);
+            anyParamVisible |= (stringMatch != null);
+            controller.__li.style.display = stringMatch ? "" : "none" ;
         })
+
+        // Filter group headings if any param in the group matches
+        if(anyParamVisible){
+            //group.domElement.firstChild.firstChild.style.opacity = '1';
+            //group.__folders["group presets"].domElement.style.opacity = '1';
+            group.__ul.style.display = "";
+        }else {
+            //group.domElement.firstChild.firstChild.style.opacity = '0.25';
+            //group.__folders["group presets"].domElement.style.opacity = '0.25';
+            group.__ul.style.display = "none";
+        }
+        
     })
 }
 
@@ -551,45 +558,49 @@ function getColorFromArgs(args) {
 // Update this client's copy of the param values
 function setLocalParamViaOsc(osc, type, name) {
 
+	//console.log("_________param name: " + name);
     if (typeof type === 'undefined') type = getHeaderPieces(osc)[1];
     if (typeof name === 'undefined') name = getHeaderPieces(osc)[2];
 
     var args = osc.args;
     var paramVal = args[0];
     var paramInfo = { "type" : type, "osc" : osc  };
-    var guiRef = gui.__folders[args[args.length-1]] || gui;
+    var groupName = args[args.length - 2];
+    var guiRef = gui.__folders[groupName];
+
     var color = getColorFromArgs(osc.args);
     var control;
-    var isNewParam = !(paramVals.hasOwnProperty(name));
+    var isNewParam = !(paramVals.hasOwnProperty(name));    
 
     paramMetas[name] = paramInfo;
+    
 
-    if (type == "FLT") {
+    if (type == "FLT") { // [val min max bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = parseFloat(paramVal);
         paramInfo.min = parseFloat(args[1]);
         paramInfo.max = parseFloat(args[2]);
-        // paramInfo.step = (paramInfo.max - paramInfo.min) / 100;
         if (isNewParam)
-            control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max, paramInfo.step).step(0.0001)//.listen();
+            control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max, paramInfo.step).step(paramInfo.max - paramInfo.min / 1000.0);//.listen();
     }
-    else if (type == "INT") {
+    else if (type == "INT") { // [val min max bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = parseInt(paramVal);
         paramInfo.min = parseInt(args[1]);
         paramInfo.max = parseInt(args[2]);
+
         if (isNewParam)
             control = guiRef.add(paramVals, name, paramInfo.min, paramInfo.max).step(1);
     }
-    else if (type == "BOL") {
+    else if (type == "BOL") { // [val bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = (paramVal == 0) ? false : true; // force true or false
         if (isNewParam)
             control = guiRef.add(paramVals, name);
     }
-    else if (type == "STR") {
+    else if (type == "STR") { // [val bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = paramVal;
         if (isNewParam)
             control = guiRef.add(paramVals, name);
     }
-    else if (type == "ENU") {
+    else if (type == "ENU") { // [val min max bgR bgG bgB bgA groupName paramDesc]
         paramVals[name] = parseInt(paramVal);
         var enumMin = parseInt(args[1]);
         var enumMax = parseInt(args[2]);
@@ -602,7 +613,7 @@ function setLocalParamViaOsc(osc, type, name) {
         if (isNewParam)
             control = guiRef.add(paramVals, name, paramInfo.enumMap);
     }
-    else if (type == "COL") {
+    else if (type == "COL") { // [r g b a a bgR bgG bgB bgA groupName paramDesc]
         var alpha =  parseFloat((parseInt(args[3]) / 255).toFixed(3));
         paramVals[name] = [parseInt(args[0]), parseInt(args[1]), parseInt(args[2]), alpha]
         if (isNewParam)
@@ -613,6 +624,7 @@ function setLocalParamViaOsc(osc, type, name) {
         control.onChange(createParamSend(name));
         control.__li.style.borderLeft = '3px solid rgba(' + color.r + ',' + color.g + ',' + color.b + ',' + color.a + ')';
     }
+
     if (!isNewParam) gui.updateDisplay();
 }
 
@@ -661,8 +673,17 @@ function gotTEST(osc) {
 function gotSEND(osc) {
     var headerPieces = getHeaderPieces(osc);
     var type = headerPieces[1];
-    var name = headerPieces[2];
+    var name = headerPieces[2]; //fetch param/group name, it may have spaces so let keep parsing...
+    if(headerPieces.length > 3){
+    	var c = 3;
+    	while(c < headerPieces.length){
+    		name += " " + headerPieces[c];
+    		c++;
+    	}
+    }
+
     if (type == "SPA" && !gui.__folders[name]) { // Its a new group
+    	console.log("NEW GROUP: " + name);
         var newGroup = gui.addFolder(name);
         newGroup.domElement.classList.add("param-group");
         var headerStyle = newGroup.domElement.firstChild.firstChild.style;
@@ -674,6 +695,7 @@ function gotSEND(osc) {
         newGroup.open();
         newGroup.presetFolder = new PresetFolder(newGroup, name);
         newGroup.presetFolder.presetFolder.close();
+        //newGroup.close();
         groups.unshift(newGroup);
     }
     else {
@@ -682,7 +704,6 @@ function gotSEND(osc) {
 }
 
 function gotPREL(osc) {
-    console.log("PREL",osc);
     var args = osc.args;
     var groupPresets = {};
 
@@ -701,8 +722,7 @@ function gotPREL(osc) {
 
     Object.keys(groupPresets).forEach(function(groupName) {
         if (gui.__folders[groupName])
-            gui.__folders[groupName].presetFolder
-                .gotPresetList(groupPresets[groupName]);
+            gui.__folders[groupName].presetFolder.gotPresetList(groupPresets[groupName]);
     })
 
 }
